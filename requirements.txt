@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 asgiref==3.8.1
 certifi==2024.6.2
 crispy-bootstrap5==0.1
@@ -26,7 +25,6 @@ setuptools==70.1.0
 sqlparse==0.5.0
 tzdata==2024.1
 virtualenv==20.26.3
-=======
 asgiref==3.8.1
 certifi==2024.6.2
 crispy-bootstrap5==0.1
@@ -54,4 +52,4 @@ setuptools==70.1.0
 sqlparse==0.5.0
 tzdata==2024.1
 virtualenv==20.26.3
->>>>>>> 01bff14b9a4901d3297c09075d1411ace5143c64
+
