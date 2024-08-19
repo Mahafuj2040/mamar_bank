@@ -14,8 +14,22 @@ class UserRegistrationForm(UserCreationForm):
     country = forms.CharField(max_length=100)
     class Meta:
         model = User
-        fields = ['username', 'password1', 'password2', 'first_name', 'last_name', 'email', 'account_type', 'birth_date','gender', 'postal_code', 'city','country', 'street_address']
-        
+        fields = [
+            'first_name', 
+            'last_name', 
+            'username', 
+            'password1', 
+            'password2', 
+            'email', 
+            'birth_date', 
+            'gender', 
+            'account_type', 
+            'city', 
+            'street_address',
+            'country', 
+            'postal_code',
+        ]
+                
         # form.save()
     def save(self, commit=True):
         our_user = super().save(commit=False) # ami database e data save korbo na ekhn

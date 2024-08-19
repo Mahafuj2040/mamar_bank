@@ -16,16 +16,31 @@ from .forms import(
 from django.http import HttpResponse
 from datetime import datetime
 from django.db.models import Sum
-# Create your views here.
 
-def send_transaction_email(user, amount, subject, template):
+
+def send_transaction_email(user, amount, subject, template, recipient_email=None, recipient_name=None):
     message = render_to_string(template, {
-        'user' : user,
-        'amount' : amount,
+        'user': user,
+        'amount': amount,
     })
+    
+   
     send_email = EmailMultiAlternatives(subject, '', to=[user.email])
     send_email.attach_alternative(message, "text/html")
     send_email.send()
+
+    if recipient_email:
+        recipient_message = render_to_string('transactions/recipient_email.html', {
+            'user': user,
+            'recipient_name': recipient_name,
+            'amount': amount,
+        })
+
+        recipient_subject = "You've received a transfer"
+        send_recipient_email = EmailMultiAlternatives(recipient_subject, '', to=[recipient_email])
+        send_recipient_email.attach_alternative(recipient_message, "text/html")
+        send_recipient_email.send()
+
 
 class TransactionCreateMixin(LoginRequiredMixin, CreateView):
     template_name = 'transactions/transaction_form.html'
@@ -46,10 +61,11 @@ class TransactionCreateMixin(LoginRequiredMixin, CreateView):
             'title' : self.title
         })
         return context
+
     
     
 class DepositMoneyView(TransactionCreateMixin):
-    form_class = DepositForm #hierarchy
+    form_class = DepositForm 
     title = 'Deposit'
     
     def get_initial(self):
@@ -119,7 +135,7 @@ class LoanRequestView(TransactionCreateMixin):
 class TransactionReportView(LoginRequiredMixin, ListView):
     template_name = 'transactions/transaction_report.html'
     model = Transaction
-    balance = 0 # filter korar pore ba age amar total balance ke show korbe
+    balance = 0 
     
     def get_queryset(self):
         queryset = super().get_queryset().filter(
@@ -139,7 +155,7 @@ class TransactionReportView(LoginRequiredMixin, ListView):
         else:
             self.balance = self.request.user.account.balance
        
-        return queryset.distinct() # unique queryset hote hobe
+        return queryset.distinct() 
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -160,7 +176,7 @@ class PayLoanView(LoginRequiredMixin, View):
                 user_account.save()
                 loan.loan_approve = False
                 loan.transaction_type = LOAN_PAID
-                loan.save()  # Save the updated loan record
+                loan.save() 
 
                 messages.success(
                     self.request,
@@ -195,43 +211,71 @@ class TransferMoneyView(LoginRequiredMixin, View):
     template_name = 'transactions/transfer_form.html'
     success_url = reverse_lazy('transaction_report')
     
-    def get(self,request, *args, **kwargs):
+    #get request
+    def get(self, request, *args, **kwargs):
         form = TransferForm(account=request.user.account)
         context = {
-            'form' : form,
-            'title' : 'Transfer Money'
+            'form': form,
+            'title': 'Transfer Money'
         }
         return render(request, self.template_name, context)
     
+    #post Request
     def post(self, request, *args, **kwargs):
         form = TransferForm(request.POST, account=request.user.account)
         if form.is_valid():
             amount = form.cleaned_data.get('amount')
             target_account = form.cleaned_data.get('target_account_no')
-            
-            #Deduct from source account
-            request.user.account.balance -= amount
-            request.user.account.save(update_fields=['balance'])
-            
-            
-            #Add to target account
-            target_account.balance += amount
-            target_account.save(update_fields = ['balance'])
-            
-            
-            #Save transactions record for the souece account
-            transaction = form.save(commit=False)
-            transaction.transaction_type = 5
-            transaction.save()
-            
-            messages.success(
-                request,
-                f'Successfully transferred {"{:,.2f}".format(float(amount))}$ to account {target_account.account_no}'
-            )
-            return redirect(self.success_url)
-        
+
+            if request.user.account.balance >= amount:
+                request.user.account.balance -= amount
+                request.user.account.save(update_fields=['balance'])
+
+                target_account.balance += amount
+                target_account.save(update_fields=['balance'])
+
+                #sender transaction update
+                sender_transaction = form.save(commit=False)
+                sender_transaction.account = request.user.account
+                sender_transaction.transaction_type = TRANSFER
+                sender_transaction.amount = -amount
+                sender_transaction.balance_after_transaction = request.user.account.balance
+                sender_transaction.save()
+
+                #recipient transaction update
+                recipient_transaction = Transaction.objects.create(
+                    account=target_account,
+                    transaction_type=TRANSFER,
+                    amount=amount, 
+                    balance_after_transaction=target_account.balance, 
+                    timestamp=sender_transaction.timestamp 
+                )
+
+                #email send
+                send_transaction_email(
+                    request.user, 
+                    amount, 
+                    "Transfer Confirmation", 
+                    'transactions/transfer_email.html', 
+                    recipient_email=target_account.user.email, 
+                    recipient_name=target_account.user.get_full_name()
+                )
+
+                # Show a success message
+                messages.success(
+                    request,
+                    f'Successfully transferred {"{:,.2f}".format(float(amount))}$ to account {target_account.account_no}'
+                )
+
+                return redirect(self.success_url)
+            else:
+                messages.error(request, 'Insufficient balance for the transfer.')
+
         context = {
             'form': form,
             'title': 'Transfer Money',
         }
         return render(request, self.template_name, context)
+
+
+# Updated code
