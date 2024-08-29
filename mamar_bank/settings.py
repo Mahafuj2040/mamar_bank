@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-nkw9r2x)t#c*tfd-gp7l3whb5(gw3u437qup@l%8okux%v2mel
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1']
 
 
 # Application definition
@@ -90,7 +90,7 @@ import environ
 env = environ.Env()
 environ.Env.read_env()
 
-SECRET_KEY = env("SECRET_KEY")
+# SECRET_KEY = env("SECRET_KEY")
 
 # DATABASES = {
 #     'default': {
